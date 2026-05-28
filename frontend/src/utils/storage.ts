@@ -24,3 +24,8 @@ export function clearSession() {
   localStorage.removeItem(STORAGE_KEYS.token);
   localStorage.removeItem(STORAGE_KEYS.user);
 }
+
+export function hasAuthSessionCookie() {
+  if (typeof document === 'undefined') return false;
+  return document.cookie.split('; ').some((cookie) => cookie.startsWith('auth_session='));
+}

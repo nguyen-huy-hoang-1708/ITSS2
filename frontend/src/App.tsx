@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/context/auth-context';
 import { ToastProvider } from '@/context/toast-context';
 import { AuthPage } from '@/pages/auth';
-import { CalendarPage, DashboardPage, EventDetailPage, EventsPage, NotFoundPage } from '@/pages/app-pages';
+import { CalendarPage, DashboardPage, EventDetailPage, EventsPage, NotFoundPage, ProfilePage } from '@/pages/app-pages';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isBootstrapping } = useAuth();
@@ -57,6 +57,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <EventDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/app/profile"
+              element={
+                <ProtectedRoute>
+                  <ProfilePage />
                 </ProtectedRoute>
               }
             />

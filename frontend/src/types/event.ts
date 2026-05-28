@@ -1,5 +1,6 @@
 export type EventType = 'hoc' | 'deadline' | 'lam_them';
 export type EventPriority = 'low' | 'medium' | 'high';
+export type RecurrenceFrequency = 'none' | 'daily' | 'weekly' | 'monthly';
 
 export interface DeadlineInfo {
   due_datetime: string;
@@ -9,6 +10,7 @@ export interface DeadlineInfo {
 }
 
 export interface EventItem {
+  id?: string | number;
   _id: string;
   user_id: string;
   title: string;
@@ -20,6 +22,10 @@ export interface EventItem {
   end_time: string;
   location: string;
   deadline: DeadlineInfo | null;
+  recurrence_frequency?: RecurrenceFrequency;
+  recurrence_interval?: number;
+  recurrence_until_date?: string | null;
+  recurrence_group_key?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -34,6 +40,9 @@ export interface EventPayload {
   end_time: string;
   location: string;
   priority?: EventPriority;
+  recurrence_frequency?: RecurrenceFrequency;
+  recurrence_interval?: number;
+  recurrence_until_date?: string | null;
 }
 
 export interface MonthParams {

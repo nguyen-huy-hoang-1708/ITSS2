@@ -5,6 +5,7 @@ const controller = require('../controllers/eventController');
 // GET routes dat truoc /:id de tranh conflict
 router.get('/today',              controller.getEventsToday);
 router.get('/deadlines',          controller.getUpcomingDeadlines);
+router.get('/notifications',      controller.getUpcomingNotifications);
 router.get('/month',              controller.getEventsByMonth);     // ?year=2025&month=6
 router.get('/week',               controller.getEventsByWeek);      // ?week_start=2025-06-02&week_end=2025-06-08
 

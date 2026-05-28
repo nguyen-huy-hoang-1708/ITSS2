@@ -3,7 +3,10 @@ import { format } from 'date-fns';
 import type { EventItem } from '@/types/event';
 import { cn } from '@/utils/cn';
 import { Badge, Button, Card, CardBody, EmptyState, Input } from './ui';
-import { formatTimeRange, getPriorityLabel, getTypeLabel } from '@/utils/date';
+import { formatTimeRange, getPriorityLabel, getRecurrenceLabel, getTypeLabel } from '@/utils/date';
+import { getEventId } from '@/utils/event-id';
+
+export type EventFilterMode = 'all' | EventItem['type'] | 'today' | 'week' | 'month' | 'completed';
 
 export function EventToolbar({
   search,
@@ -11,12 +14,14 @@ export function EventToolbar({
   filter,
   setFilter,
   onCreate,
+  onExportExcel,
 }: {
   search: string;
   setSearch: (value: string) => void;
-  filter: 'all' | EventItem['type'];
-  setFilter: (value: 'all' | EventItem['type']) => void;
+  filter: EventFilterMode;
+  setFilter: (value: EventFilterMode) => void;
   onCreate: () => void;
+  onExportExcel?: () => void;
 }) {
   return (
     <Card>
@@ -25,16 +30,17 @@ export function EventToolbar({
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm kiếm theo tiêu đề, tag, mô tả..." />
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          {(['all', 'hoc', 'deadline', 'lam_them'] as const).map((item) => (
+          {(['all', 'hoc', 'deadline', 'lam_them', 'today', 'week', 'month', 'completed'] as const).map((item) => (
             <button
               key={item}
               type="button"
               onClick={() => setFilter(item)}
               className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${filter === item ? 'bg-slate-950 text-white shadow-glow' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
             >
-              {item === 'all' ? 'Tất cả' : getTypeLabel(item)}
+              {item === 'all' ? 'Tất cả' : item === 'today' ? 'Hôm nay' : item === 'week' ? 'Tuần này' : item === 'month' ? 'Tháng này' : item === 'completed' ? 'Hoàn thành' : getTypeLabel(item)}
             </button>
           ))}
+          {onExportExcel ? <Button variant="secondary" onClick={onExportExcel}>Excel</Button> : null}
           <Button onClick={onCreate}>
             <Calendar className="h-4 w-4" />
             Tạo mới
@@ -80,7 +86,7 @@ export function EventTable({
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
             {events.map((event) => (
-              <tr key={event._id} className="transition hover:bg-slate-50/90">
+              <tr key={getEventId(event)} className="transition hover:bg-slate-50/90">
                 <td className="px-6 py-5">
                   <button className="text-left" onClick={() => onOpen(event)}>
                     <p className="font-semibold text-slate-950">{event.title}</p>
@@ -119,7 +125,7 @@ export function EventTable({
 
       <div className="grid gap-4 lg:hidden">
         {events.map((event) => (
-          <Card key={event._id}>
+          <Card key={getEventId(event)}>
             <CardBody>
               <div className="flex items-start justify-between gap-4">
                 <button className="text-left" onClick={() => onOpen(event)}>
@@ -133,6 +139,7 @@ export function EventTable({
               <div className="mt-4 flex flex-wrap gap-2">
                 <Badge tone={event.type === 'deadline' ? 'warning' : event.type === 'hoc' ? 'brand' : 'purple'}>{getTypeLabel(event.type)}</Badge>
                 {event.deadline?.is_completed ? <Badge tone="success">Hoàn thành</Badge> : null}
+                {event.recurrence_frequency && event.recurrence_frequency !== 'none' ? <Badge tone="brand">{getRecurrenceLabel(event.recurrence_frequency, event.recurrence_interval || 1)}</Badge> : null}
               </div>
               <div className="mt-4 grid gap-2 text-sm text-slate-600">
                 <p>{format(new Date(event.event_date), 'dd/MM/yyyy')} • {formatTimeRange(event.start_time, event.end_time)}</p>

@@ -1,5 +1,5 @@
 import { request } from './api/client';
-import type { AuthSession, LoginPayload, RegisterPayload, User } from '@/types/auth';
+import type { AuthSession, ChangePasswordPayload, LoginPayload, RegisterPayload, UpdateProfilePayload, User } from '@/types/auth';
 
 export async function login(payload: LoginPayload) {
   const response = await request<AuthSession>({
@@ -39,4 +39,31 @@ export async function refreshSession() {
   });
 
   return response.data;
+}
+
+export async function getProfile() {
+  const response = await request<User>({
+    url: '/auth/me',
+    method: 'GET',
+  });
+
+  return response.data;
+}
+
+export async function updateProfile(payload: UpdateProfilePayload) {
+  const response = await request<User>({
+    url: '/auth/profile',
+    method: 'PUT',
+    data: payload,
+  });
+
+  return response.data;
+}
+
+export async function changePassword(payload: ChangePasswordPayload) {
+  await request<null>({
+    url: '/auth/password',
+    method: 'PUT',
+    data: payload,
+  });
 }

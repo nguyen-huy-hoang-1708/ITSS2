@@ -2,6 +2,7 @@ import { format, isSameDay } from 'date-fns';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { EventItem } from '@/types/event';
 import { buildMonthGrid, buildWeekRange, formatTimeRange, getMonthCursor, getTypeLabel, isSameCalendarDay } from '@/utils/date';
+import { getEventId } from '@/utils/event-id';
 import { Badge, Button, Card, CardBody } from './ui';
 
 export function MonthCalendar({
@@ -66,7 +67,7 @@ export function MonthCalendar({
                 </div>
                 <div className="mt-3 space-y-2">
                   {dayEvents.slice(0, 2).map((event) => (
-                    <div key={event._id} className="rounded-xl border border-slate-100 bg-slate-50/90 px-2 py-1.5 text-xs text-slate-600">
+                    <div key={getEventId(event)} className="rounded-xl border border-slate-100 bg-slate-50/90 px-2 py-1.5 text-xs text-slate-600">
                       <p className="truncate font-medium text-slate-900">{event.title}</p>
                       <p className="mt-0.5 truncate">{formatTimeRange(event.start_time, event.end_time)}</p>
                     </div>
@@ -112,7 +113,7 @@ export function WeekAgenda({ cursor, events }: { cursor: Date; events: EventItem
                 <div className="mt-4 space-y-3">
                   {dayEvents.length === 0 ? <p className="text-sm text-slate-400">Rỗng</p> : null}
                   {dayEvents.map((event) => (
-                    <div key={event._id} className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3">
+                    <div key={getEventId(event)} className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-slate-950">{event.title}</p>

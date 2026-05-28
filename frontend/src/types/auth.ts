@@ -19,3 +19,13 @@ export interface RegisterPayload {
   email: string;
   password: string;
 }
+
+export interface UpdateProfilePayload {
+  full_name: string;
+  email: string;
+}
+
+export interface ChangePasswordPayload {
+  current_password: string;
+  new_password: string;
+}

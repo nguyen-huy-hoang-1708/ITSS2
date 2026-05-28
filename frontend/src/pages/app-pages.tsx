@@ -1,17 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { AlertCircle, Calendar, CheckCircle2, Clock3, Sparkles } from 'lucide-react';
 import { AppShell } from '@/components/layout';
 import { MonthCalendar, WeekAgenda } from '@/components/calendar-view';
 import { EventFormModal } from '@/components/event-form-modal';
-import { EventTable, EventToolbar } from '@/components/event-list';
-import { Badge, Button, Card, CardBody, EmptyState, Input, Skeleton } from '@/components/ui';
+import { EventTable, EventToolbar, type EventFilterMode } from '@/components/event-list';
+import { Badge, Button, Card, CardBody, EmptyState, Input, PageShell, Skeleton } from '@/components/ui';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
 import { completeDeadline, createEvent, deleteEvent, getAllEvents, getEventById, getMonthEvents, getTodayEvents, getUpcomingDeadlines, getWeekEvents, updateEvent } from '@/services/events';
 import type { EventItem, EventPayload } from '@/types/event';
-import { formatDateShort, formatTimeRange, getMonthCursor, getPriorityLabel, getTypeLabel } from '@/utils/date';
+import { formatDateShort, formatTimeRange, getDeadlineCountdownLabel, getFreeTimeSuggestions, getMonthCursor, getPriorityLabel, getRecurrenceLabel, getTimeStatistics, getTypeLabel, isEventCompleted, isEventInCurrentMonth, isEventInCurrentWeek, isEventToday } from '@/utils/date';
+import { exportEventsToExcel } from '@/utils/export';
+import { getEventId } from '@/utils/event-id';
 import { useNavigateSafe } from './helpers';
 
 export function DashboardPage() {
@@ -22,6 +24,7 @@ export function DashboardPage() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { pushToast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     (async () => {
@@ -43,11 +46,13 @@ export function DashboardPage() {
   const stats = useMemo(() => {
     const deadlineCount = events.filter((event) => event.type === 'deadline').length;
     const completedCount = events.filter((event) => event.deadline?.is_completed).length;
+    const timeStats = getTimeStatistics(events);
     return [
       { label: 'Tổng sự kiện', value: events.length, icon: Calendar, tone: 'brand' as const },
       { label: 'Hôm nay', value: todayEvents.length, icon: Clock3, tone: 'success' as const },
       { label: 'Deadline', value: deadlineCount, icon: AlertCircle, tone: 'warning' as const },
       { label: 'Hoàn thành', value: completedCount, icon: CheckCircle2, tone: 'purple' as const },
+      { label: 'Giờ học', value: `${timeStats.studyHours}h`, icon: Calendar, tone: 'brand' as const },
     ];
   }, [events, todayEvents.length]);
 
@@ -62,6 +67,56 @@ export function DashboardPage() {
   return (
     <AppShell onCreateEvent={() => navigate('/app/events')}>
       <div className="space-y-6">
+        <Card className="overflow-hidden border-brand-100 bg-[linear-gradient(135deg,rgba(15,23,42,0.98)_0%,rgba(30,41,59,0.94)_45%,rgba(14,165,233,0.84)_100%)] text-white shadow-2xl">
+          <CardBody className="relative overflow-hidden">
+            <div className="pointer-events-none absolute inset-0 opacity-20">
+              <div className="absolute -right-10 top-0 h-44 w-44 rounded-full bg-white/20 blur-3xl" />
+              <div className="absolute left-10 bottom-0 h-36 w-36 rounded-full bg-brand-300/30 blur-3xl" />
+            </div>
+            <div className="relative grid gap-6 lg:grid-cols-[1.35fr_0.65fr] lg:items-end">
+              <div className="space-y-4">
+                <Badge tone="brand">Tổng quan hôm nay</Badge>
+                <div>
+                  <p className="text-sm text-slate-300">Xin chào, {user?.full_name || 'bạn'}!</p>
+                  <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">Lịch trình của bạn đang rất rõ ràng.</h1>
+                  <p className="mt-3 max-w-2xl text-sm text-slate-300 sm:text-base">Theo dõi deadline, thời gian rảnh, sự kiện lặp lại và các điểm nhấn trong ngày bằng giao diện gọn, sáng, dễ demo.</p>
+                </div>
+                <div className="flex flex-wrap gap-3 text-sm">
+                  <div className="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+                    <p className="text-slate-300">Hôm nay</p>
+                    <p className="mt-1 text-lg font-semibold">{todayEvents.length} sự kiện</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+                    <p className="text-slate-300">Deadline gấp</p>
+                    <p className="mt-1 text-lg font-semibold">{todayEvents.filter((event) => event.type === 'deadline' && !event.deadline?.is_completed).length} việc</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+                    <p className="text-slate-300">Mục tiêu tiếp theo</p>
+                    <p className="mt-1 text-lg font-semibold">{deadlines[0] ? getDeadlineCountdownLabel(deadlines[0].deadline?.due_datetime) : 'Không có'}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-[28px] border border-white/10 bg-white/10 p-5 backdrop-blur-xl">
+                <p className="text-sm text-slate-300">Phiên làm việc</p>
+                <div className="mt-3 space-y-3">
+                  {stats.slice(0, 4).map((stat) => {
+                    const Icon = stat.icon;
+                    return (
+                      <div key={stat.label} className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3">
+                        <div>
+                          <p className="text-sm text-slate-300">{stat.label}</p>
+                          <p className="text-xl font-semibold">{stat.value}</p>
+                        </div>
+                        <Icon className="h-5 w-5 text-sky-200" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {stats.map((stat) => {
             const Icon = stat.icon;
@@ -101,7 +156,7 @@ export function DashboardPage() {
               ) : (
                 <div className="space-y-3">
                   {todayEvents.map((event) => (
-                    <div key={event._id} className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-slate-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div key={getEventId(event)} className="flex flex-col gap-4 rounded-3xl border border-slate-200 bg-slate-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <div className="flex flex-wrap items-center gap-2">
                           <h3 className="font-semibold text-slate-950">{event.title}</h3>
@@ -110,7 +165,7 @@ export function DashboardPage() {
                         <p className="mt-1 text-sm text-slate-500">{event.description || 'Không có mô tả'}</p>
                         <p className="mt-2 text-sm text-slate-600">{formatTimeRange(event.start_time, event.end_time)} • {event.location || '—'}</p>
                       </div>
-                      <Button variant="secondary" onClick={() => navigate(`/app/events/${event._id}`)}>
+                      <Button variant="secondary" onClick={() => navigate(`/app/events/${getEventId(event)}`)}>
                         Chi tiết
                       </Button>
                     </div>
@@ -135,14 +190,64 @@ export function DashboardPage() {
               ) : (
                 <div className="space-y-3">
                   {deadlines.slice(0, 5).map((event) => (
-                    <div key={event._id} className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <div key={getEventId(event)} className="rounded-3xl border border-slate-200 bg-white p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="font-semibold text-slate-950">{event.title}</p>
                           <p className="mt-1 text-sm text-slate-500">{formatDateShort(event.event_date)} • {formatTimeRange(event.start_time, event.end_time)}</p>
+                          <p className="mt-1 text-sm font-medium text-rose-600">{getDeadlineCountdownLabel(event.deadline?.due_datetime)}</p>
                         </div>
                         <Badge tone="warning">{getPriorityLabel(event.deadline?.priority)}</Badge>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+          <Card>
+            <CardBody className="space-y-4">
+              <div>
+                <p className="text-sm font-medium text-slate-500">Today Focus</p>
+                <h2 className="text-2xl font-semibold text-slate-950">Mục tiêu hôm nay</h2>
+              </div>
+              {todayEvents.length === 0 ? (
+                <EmptyState title="Chưa có mục tiêu hôm nay" description="Hãy tạo lịch để hệ thống đề xuất ưu tiên." />
+              ) : (
+                <div className="space-y-3">
+                  {todayEvents.slice(0, 4).map((event) => (
+                    <div key={getEventId(event)} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-slate-950">{event.title}</p>
+                          <p className="mt-1 text-sm text-slate-500">{formatTimeRange(event.start_time, event.end_time)}</p>
+                        </div>
+                        <Badge tone={event.type === 'deadline' ? 'warning' : event.type === 'hoc' ? 'brand' : 'purple'}>{getTypeLabel(event.type)}</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="space-y-4">
+              <div>
+                <p className="text-sm font-medium text-slate-500">Gợi ý thời gian rảnh</p>
+                <h2 className="text-2xl font-semibold text-slate-950">Khoảng trống trong ngày</h2>
+              </div>
+              {getFreeTimeSuggestions(todayEvents).length === 0 ? (
+                <EmptyState title="Không có khoảng trống đủ lớn" description="Lịch hôm nay khá kín hoặc chỉ còn các khoảng rất ngắn." />
+              ) : (
+                <div className="space-y-3">
+                  {getFreeTimeSuggestions(todayEvents).map((slot) => (
+                    <div key={`${slot.start}-${slot.end}`} className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-3">
+                      <p className="font-semibold text-slate-950">{slot.start} - {slot.end}</p>
+                      <p className="text-sm text-slate-500">{slot.label}</p>
                     </div>
                   ))}
                 </div>
@@ -159,7 +264,7 @@ export function EventsPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | EventItem['type']>('all');
+  const [filter, setFilter] = useState<EventFilterMode>('all');
   const [formOpen, setFormOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
   const navigate = useNavigate();
@@ -183,7 +288,26 @@ export function EventsPage() {
   const filteredEvents = useMemo(() => {
     const keyword = search.trim().toLowerCase();
     return events.filter((event) => {
-      const matchesFilter = filter === 'all' ? true : event.type === filter;
+      const matchesFilter = (() => {
+        switch (filter) {
+          case 'all':
+            return true;
+          case 'hoc':
+          case 'deadline':
+          case 'lam_them':
+            return event.type === filter;
+          case 'today':
+            return isEventToday(event);
+          case 'week':
+            return isEventInCurrentWeek(event);
+          case 'month':
+            return isEventInCurrentMonth(event);
+          case 'completed':
+            return isEventCompleted(event);
+          default:
+            return true;
+        }
+      })();
       const matchesSearch = !keyword
         ? true
         : [event.title, event.description, event.tag_label, event.location]
@@ -195,7 +319,7 @@ export function EventsPage() {
 
   const handleSubmit = async (payload: EventPayload) => {
     if (editingEvent) {
-      await updateEvent(editingEvent._id, payload);
+      await updateEvent(getEventId(editingEvent), payload);
       pushToast({ title: 'Cập nhật thành công', description: editingEvent.title, variant: 'success' });
     } else {
       await createEvent(payload);
@@ -207,13 +331,13 @@ export function EventsPage() {
 
   const handleDelete = async (event: EventItem) => {
     if (!window.confirm(`Xóa sự kiện "${event.title}"?`)) return;
-    await deleteEvent(event._id);
+    await deleteEvent(getEventId(event));
     pushToast({ title: 'Đã xoá sự kiện', description: event.title, variant: 'success' });
     await loadEvents();
   };
 
   const handleComplete = async (event: EventItem) => {
-    await completeDeadline(event._id);
+    await completeDeadline(getEventId(event));
     pushToast({ title: 'Đã đánh dấu hoàn thành', description: event.title, variant: 'success' });
     await loadEvents();
   };
@@ -221,8 +345,15 @@ export function EventsPage() {
   return (
     <AppShell onCreateEvent={() => setFormOpen(true)}>
       <div className="space-y-6">
-        <EventToolbar search={search} setSearch={setSearch} filter={filter} setFilter={setFilter} onCreate={() => setFormOpen(true)} />
-        {loading ? <EventsSkeleton /> : <EventTable events={filteredEvents} onEdit={(event) => setEditingEvent(event)} onDelete={handleDelete} onComplete={handleComplete} onOpen={(event) => navigate(`/app/events/${event._id}`)} />}
+        <EventToolbar
+          search={search}
+          setSearch={setSearch}
+          filter={filter}
+          setFilter={setFilter}
+          onCreate={() => setFormOpen(true)}
+          onExportExcel={() => exportEventsToExcel(filteredEvents)}
+        />
+        {loading ? <EventsSkeleton /> : <EventTable events={filteredEvents} onEdit={(event) => setEditingEvent(event)} onDelete={handleDelete} onComplete={handleComplete} onOpen={(event) => navigate(`/app/events/${getEventId(event)}`)} />}
       </div>
 
       <EventFormModal
@@ -329,7 +460,7 @@ export function EventDetailPage() {
 
   const handleSave = async (payload: EventPayload) => {
     if (!event) return;
-    const updated = await updateEvent(event._id, payload);
+    const updated = await updateEvent(getEventId(event), payload);
     setEvent(updated);
     setEditing(false);
     pushToast({ title: 'Cập nhật thành công', description: updated.title, variant: 'success' });
@@ -337,7 +468,7 @@ export function EventDetailPage() {
 
   const handleComplete = async () => {
     if (!event) return;
-    const updated = await completeDeadline(event._id);
+    const updated = await completeDeadline(getEventId(event));
     setEvent(updated);
     pushToast({ title: 'Đánh dấu hoàn thành', description: updated.title, variant: 'success' });
   };
@@ -345,7 +476,7 @@ export function EventDetailPage() {
   const handleDelete = async () => {
     if (!event) return;
     if (!window.confirm(`Xóa sự kiện "${event.title}"?`)) return;
-    await deleteEvent(event._id);
+    await deleteEvent(getEventId(event));
     pushToast({ title: 'Đã xoá sự kiện', description: event.title, variant: 'success' });
     navigate('/app/events');
   };
@@ -372,6 +503,7 @@ export function EventDetailPage() {
                 <InfoBox label="Giờ" value={formatTimeRange(event.start_time, event.end_time)} />
                 <InfoBox label="Địa điểm" value={event.location || '—'} />
                 <InfoBox label="Tag" value={event.tag_label || '—'} />
+                <InfoBox label="Lặp lại" value={getRecurrenceLabel(event.recurrence_frequency, event.recurrence_interval || 1)} />
               </div>
 
               {event.deadline ? (
@@ -435,6 +567,123 @@ export function EventDetailPage() {
   );
 }
 
+export function ProfilePage() {
+  const { user, updateProfile, changePassword } = useAuth();
+  const { pushToast } = useToast();
+  const navigate = useNavigate();
+  const [profileForm, setProfileForm] = useState({ full_name: '', email: '' });
+  const [passwordForm, setPasswordForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  useEffect(() => {
+    setProfileForm({
+      full_name: user?.full_name || '',
+      email: user?.email || '',
+    });
+  }, [user]);
+
+  const handleProfileSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      setSavingProfile(true);
+      await updateProfile({ full_name: profileForm.full_name.trim(), email: profileForm.email.trim() });
+      pushToast({ title: 'Đã cập nhật hồ sơ', description: 'Thông tin cá nhân đã được lưu.', variant: 'success' });
+    } catch (error) {
+      pushToast({ title: 'Cập nhật thất bại', description: error instanceof Error ? error.message : 'Vui lòng thử lại', variant: 'error' });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handlePasswordSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      pushToast({ title: 'Mật khẩu không khớp', description: 'Vui lòng kiểm tra lại mật khẩu mới.', variant: 'error' });
+      return;
+    }
+
+    try {
+      setSavingPassword(true);
+      await changePassword({ current_password: passwordForm.current_password, new_password: passwordForm.new_password });
+      setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
+      pushToast({ title: 'Đã đổi mật khẩu', description: 'Mật khẩu mới đã được lưu.', variant: 'success' });
+    } catch (error) {
+      pushToast({ title: 'Đổi mật khẩu thất bại', description: error instanceof Error ? error.message : 'Vui lòng thử lại', variant: 'error' });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  return (
+    <AppShell onCreateEvent={() => navigate('/app/events')}>
+      <PageShell
+        title="Hồ sơ cá nhân"
+        description="Cập nhật thông tin tài khoản và thay đổi mật khẩu tại đây."
+      >
+        <div className="grid gap-6 xl:grid-cols-[1fr_0.95fr]">
+          <Card>
+            <CardBody className="space-y-6">
+              <div>
+                <p className="text-sm font-medium text-slate-500">Thông tin cá nhân</p>
+                <h2 className="text-2xl font-semibold text-slate-950">Chỉnh sửa hồ sơ</h2>
+              </div>
+
+              <form className="space-y-4" onSubmit={handleProfileSubmit}>
+                <Field label="Họ và tên">
+                  <Input value={profileForm.full_name} onChange={(e) => setProfileForm((current) => ({ ...current, full_name: e.target.value }))} />
+                </Field>
+                <Field label="Email">
+                  <Input type="email" value={profileForm.email} onChange={(e) => setProfileForm((current) => ({ ...current, email: e.target.value }))} />
+                </Field>
+
+                <Button type="submit" isLoading={savingProfile}>Lưu thay đổi</Button>
+              </form>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardBody className="space-y-6">
+              <div>
+                <p className="text-sm font-medium text-slate-500">Bảo mật</p>
+                <h2 className="text-2xl font-semibold text-slate-950">Đổi mật khẩu</h2>
+              </div>
+
+              <form className="space-y-4" onSubmit={handlePasswordSubmit}>
+                <Field label="Mật khẩu hiện tại">
+                  <Input type="password" value={passwordForm.current_password} onChange={(e) => setPasswordForm((current) => ({ ...current, current_password: e.target.value }))} />
+                </Field>
+                <Field label="Mật khẩu mới">
+                  <Input type="password" value={passwordForm.new_password} onChange={(e) => setPasswordForm((current) => ({ ...current, new_password: e.target.value }))} />
+                </Field>
+                <Field label="Nhập lại mật khẩu mới">
+                  <Input type="password" value={passwordForm.confirm_password} onChange={(e) => setPasswordForm((current) => ({ ...current, confirm_password: e.target.value }))} />
+                </Field>
+
+                <Button type="submit" variant="secondary" isLoading={savingPassword}>Đổi mật khẩu</Button>
+              </form>
+            </CardBody>
+          </Card>
+        </div>
+
+        <Card>
+          <CardBody>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-slate-500">Tài khoản đang dùng</p>
+                <h3 className="text-xl font-semibold text-slate-950">{user?.full_name || '—'}</h3>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                {user?.email || '—'}
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      </PageShell>
+    </AppShell>
+  );
+}
+
 export function NotFoundPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-white">
@@ -454,6 +703,15 @@ function InfoBox({ label, value }: { label: string; value: string }) {
       <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{label}</p>
       <p className="mt-2 text-sm font-semibold text-slate-950">{value}</p>
     </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block space-y-2">
+      <span className="text-sm font-medium text-slate-700">{label}</span>
+      {children}
+    </label>
   );
 }
 

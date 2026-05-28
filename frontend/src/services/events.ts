@@ -17,6 +17,15 @@ export async function getUpcomingDeadlines() {
   return response.data;
 }
 
+export async function getUpcomingNotifications(minutes = 30) {
+  const response = await request<EventItem[]>({
+    url: '/event/notifications',
+    method: 'GET',
+    params: { minutes },
+  });
+  return response.data;
+}
+
 export async function getMonthEvents({ year, month }: MonthParams) {
   const response = await request<EventItem[]>({
     url: '/event/month',

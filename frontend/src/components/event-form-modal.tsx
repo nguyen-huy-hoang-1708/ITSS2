@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Badge, Button, Modal, Input, Select, Textarea } from './ui';
-import type { EventItem, EventPayload, EventPriority, EventType } from '@/types/event';
+import type { EventItem, EventPayload, EventPriority, EventType, RecurrenceFrequency } from '@/types/event';
 
 interface Props {
   open: boolean;
@@ -25,6 +25,9 @@ export function EventFormModal({ open, mode, initialValue, onClose, onSubmit }: 
     end_time: '09:00',
     location: '',
     priority: 'medium',
+    recurrence_frequency: 'none',
+    recurrence_interval: 1,
+    recurrence_until_date: null,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -41,11 +44,15 @@ export function EventFormModal({ open, mode, initialValue, onClose, onSubmit }: 
       end_time: (initialValue?.end_time || '09:00').slice(0, 5),
       location: initialValue?.location || '',
       priority: initialValue?.deadline?.priority || 'medium',
+      recurrence_frequency: initialValue?.recurrence_frequency || 'none',
+      recurrence_interval: initialValue?.recurrence_interval || 1,
+      recurrence_until_date: initialValue?.recurrence_until_date || null,
     });
     setErrors({});
   }, [initialValue, open]);
 
   const isDeadline = useMemo(() => form.type === 'deadline', [form.type]);
+  const isRecurring = useMemo(() => form.recurrence_frequency && form.recurrence_frequency !== 'none', [form.recurrence_frequency]);
 
   const validate = () => {
     const nextErrors: Record<string, string> = {};
@@ -55,6 +62,7 @@ export function EventFormModal({ open, mode, initialValue, onClose, onSubmit }: 
     if (!form.end_time) nextErrors.end_time = 'Giờ kết thúc là bắt buộc';
     if (form.end_time && form.start_time && form.end_time <= form.start_time) nextErrors.end_time = 'Giờ kết thúc phải lớn hơn giờ bắt đầu';
     if (isDeadline && !form.priority) nextErrors.priority = 'Priority là bắt buộc';
+    if (isRecurring && !form.recurrence_until_date) nextErrors.recurrence_until_date = 'Chọn ngày kết thúc lặp lại';
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -72,6 +80,8 @@ export function EventFormModal({ open, mode, initialValue, onClose, onSubmit }: 
       await onSubmit({
         ...form,
         priority: form.type === 'deadline' ? (form.priority || 'medium') : undefined,
+        recurrence_interval: form.recurrence_frequency === 'none' ? undefined : Math.max(1, Number(form.recurrence_interval || 1)),
+        recurrence_until_date: form.recurrence_frequency === 'none' ? null : form.recurrence_until_date,
       });
       onClose();
     } finally {
@@ -125,6 +135,34 @@ export function EventFormModal({ open, mode, initialValue, onClose, onSubmit }: 
           </Field>
           <Field label="Giờ kết thúc" error={errors.end_time}>
             <Input type="time" value={form.end_time} onChange={(e) => handleChange('end_time', e.target.value)} />
+          </Field>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <Field label="Lặp lại">
+            <Select value={form.recurrence_frequency || 'none'} onChange={(e) => handleChange('recurrence_frequency', e.target.value as RecurrenceFrequency)}>
+              <option value="none">Không lặp</option>
+              <option value="daily">Hằng ngày</option>
+              <option value="weekly">Hằng tuần</option>
+              <option value="monthly">Hằng tháng</option>
+            </Select>
+          </Field>
+          <Field label="Chu kỳ">
+            <Input
+              type="number"
+              min={1}
+              value={form.recurrence_interval ?? 1}
+              onChange={(e) => handleChange('recurrence_interval', Number(e.target.value) as EventPayload['recurrence_interval'])}
+              disabled={!isRecurring}
+            />
+          </Field>
+          <Field label="Lặp đến" error={errors.recurrence_until_date}>
+            <Input
+              type="date"
+              value={form.recurrence_until_date || ''}
+              onChange={(e) => handleChange('recurrence_until_date', e.target.value || null)}
+              disabled={!isRecurring}
+            />
           </Field>
         </div>
 

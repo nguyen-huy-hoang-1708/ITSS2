@@ -69,6 +69,16 @@ const getUpcomingDeadlines = async (req, res) => {
   }
 };
 
+const getUpcomingNotifications = async (req, res) => {
+  try {
+    const minutes = req.query.minutes ? Number(req.query.minutes) : 30;
+    const data = await eventService.getUpcomingNotifications(req.user.user_id, minutes);
+    sendRes(res, 200, 'Lấy thông báo sắp tới thành công', data);
+  } catch (err) {
+    sendRes(res, 400, 'Lấy thông báo thất bại', null, err.message);
+  }
+};
+
 const updateEvent = async (req, res) => {
   try {
     const data = await eventService.updateEvent(req.params.id, req.user.user_id, req.body);
@@ -117,6 +127,7 @@ module.exports = {
   getEventsByWeek,
   getEventsToday,
   getUpcomingDeadlines,
+  getUpcomingNotifications,
   updateEvent,
   deleteEvent,
   markDeadlineCompleted,

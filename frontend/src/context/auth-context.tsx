@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { login as loginRequest, logout as logoutRequest, refreshSession as refreshSessionRequest, register as registerRequest } from '@/services/auth';
-import type { AuthSession, LoginPayload, RegisterPayload, User } from '@/types/auth';
-import { clearSession, getStoredToken, getStoredUser, saveSession } from '@/utils/storage';
+import { changePassword as changePasswordRequest, login as loginRequest, logout as logoutRequest, refreshSession as refreshSessionRequest, register as registerRequest, updateProfile as updateProfileRequest } from '@/services/auth';
+import type { AuthSession, ChangePasswordPayload, LoginPayload, RegisterPayload, UpdateProfilePayload, User } from '@/types/auth';
+import { clearSession, getStoredToken, getStoredUser, hasAuthSessionCookie, saveSession } from '@/utils/storage';
 
 interface AuthContextValue {
   user: User | null;
@@ -11,6 +11,8 @@ interface AuthContextValue {
   signIn: (payload: LoginPayload) => Promise<void>;
   signUp: (payload: RegisterPayload) => Promise<void>;
   signOut: () => Promise<void>;
+  updateProfile: (payload: UpdateProfilePayload) => Promise<User>;
+  changePassword: (payload: ChangePasswordPayload) => Promise<void>;
   syncSession: () => Promise<void>;
 }
 
@@ -34,6 +36,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (storedUser && storedToken) {
       setUser(storedUser);
       setToken(storedToken);
+      return;
+    }
+
+    if (!hasAuthSessionCookie()) {
+      clearSession();
+      setUser(null);
+      setToken(null);
       return;
     }
 
@@ -73,6 +82,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const updateProfile = useCallback(async (payload: UpdateProfilePayload) => {
+    const updated = await updateProfileRequest(payload);
+    if (token) {
+      const nextSession = { token, user: updated };
+      saveSession(nextSession);
+    }
+    setUser(updated);
+    return updated;
+  }, [token]);
+
+  const changePassword = useCallback(async (payload: ChangePasswordPayload) => {
+    await changePasswordRequest(payload);
+  }, []);
+
   const value = useMemo<AuthContextValue>(() => ({
     user,
     token,
@@ -81,8 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn,
     signUp,
     signOut,
+    updateProfile,
+    changePassword,
     syncSession,
-  }), [isBootstrapping, signIn, signOut, signUp, syncSession, token, user]);
+  }), [changePassword, isBootstrapping, signIn, signOut, signUp, syncSession, token, updateProfile, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
