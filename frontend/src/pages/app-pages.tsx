@@ -12,7 +12,7 @@ import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
 import { completeDeadline, createEvent, deleteEvent, getAllEvents, getEventById, getMonthEvents, getTodayEvents, getUpcomingDeadlines, getWeekEvents, toggleEventCompletion, updateEvent } from '@/services/events';
 import type { EventItem, EventPayload } from '@/types/event';
-import { formatDateShort, formatTimeRange, getDeadlineCountdownLabel, getFreeTimeSuggestions, getMonthCursor, getPriorityLabel, getRecurrenceLabel, getTimeStatistics, getTypeLabel, isEventCompleted, isEventInCurrentMonth, isEventInCurrentWeek, isEventToday } from '@/utils/date';
+import { formatDateShort, formatTimeRange, getDeadlineCountdownLabel, getFreeTimeSuggestions, getMonthCursor, getPriorityLabel, getPriorityTone, getRecurrenceLabel, getTimeStatistics, getTypeLabel, isEventCompleted, isEventInCurrentMonth, isEventInCurrentWeek, isEventToday } from '@/utils/date';
 import { exportEventsToExcel } from '@/utils/export';
 import { getEventId } from '@/utils/event-id';
 import { useNavigateSafe } from './helpers';
@@ -198,7 +198,7 @@ export function DashboardPage() {
                           <p className="mt-1 text-sm text-slate-500">{formatDateShort(event.event_date)} • {formatTimeRange(event.start_time, event.end_time)}</p>
                           <p className="mt-1 text-sm font-medium text-rose-600">{getDeadlineCountdownLabel(event.deadline?.due_datetime)}</p>
                         </div>
-                        <Badge tone="warning">{getPriorityLabel(event.deadline?.priority)}</Badge>
+                        <Badge tone={getPriorityTone(event.deadline?.priority)}>{getPriorityLabel(event.deadline?.priority)}</Badge>
                       </div>
                     </div>
                   ))}
@@ -628,7 +628,10 @@ export function EventDetailPage() {
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm text-slate-500">Deadline info</p>
-                        <p className="mt-1 text-lg font-semibold text-slate-950">Priority: {getPriorityLabel(event.deadline.priority)}</p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="text-lg font-semibold text-slate-950">Priority:</span>
+                          <Badge tone={getPriorityTone(event.deadline.priority)}>{getPriorityLabel(event.deadline.priority)}</Badge>
+                        </div>
                         <p className="mt-1 text-sm text-slate-500">Trạng thái: {event.is_completed ? 'Hoàn thành' : 'Đang chờ'}</p>
                       </div>
                       <div className="flex gap-2">

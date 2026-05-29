@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { Clock, MapPin, X } from 'lucide-react';
 import { useMemo } from 'react';
 import type { EventItem } from '@/types/event';
-import { formatTimeRange, getTypeLabel } from '@/utils/date';
+import { formatTimeRange, getPriorityLabel, getPriorityTone, getTypeLabel } from '@/utils/date';
 import { getEventId } from '@/utils/event-id';
 import { Badge, Button } from './ui';
 
@@ -120,8 +120,11 @@ export function DayEventsModal({
                       </div>
 
                       {event.deadline && (
-                        <div className="mt-3 rounded-2xl bg-amber-50/60 border border-amber-200/50 p-3">
-                          <p className="text-xs font-semibold text-amber-900">Priority: {event.deadline.priority}</p>
+                        <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                          <p className="text-xs font-medium text-slate-500">Priority</p>
+                          <div className="mt-2">
+                            <Badge tone={getPriorityTone(event.deadline.priority)}>{getPriorityLabel(event.deadline.priority)}</Badge>
+                          </div>
                         </div>
                       )}
                     </div>

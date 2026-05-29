@@ -93,6 +93,19 @@ export function getPriorityLabel(priority?: string | null) {
   }
 }
 
+export function getPriorityTone(priority?: string | null) {
+  switch (priority) {
+    case 'high':
+      return 'danger';
+    case 'medium':
+      return 'warning';
+    case 'low':
+      return 'success';
+    default:
+      return 'neutral';
+  }
+}
+
 export function getRecurrenceLabel(frequency?: string | null, interval = 1) {
   switch (frequency) {
     case 'daily':

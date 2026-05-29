@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import type { EventItem } from '@/types/event';
 import { cn } from '@/utils/cn';
 import { Badge, Button, Card, CardBody, EmptyState, Input } from './ui';
-import { formatTimeRange, getPriorityLabel, getRecurrenceLabel, getTypeLabel } from '@/utils/date';
+import { formatTimeRange, getPriorityLabel, getPriorityTone, getRecurrenceLabel, getTypeLabel } from '@/utils/date';
 import { getEventId } from '@/utils/event-id';
 
 export type EventFilterMode = 'all' | EventItem['type'] | 'today' | 'week' | 'month' | 'completed';
@@ -100,7 +100,9 @@ export function EventTable({
                 <td className="px-6 py-5">
                   <Badge tone={event.type === 'deadline' ? 'warning' : event.type === 'hoc' ? 'brand' : 'purple'}>{getTypeLabel(event.type)}</Badge>
                 </td>
-                <td className="px-6 py-5 text-sm text-slate-600">{getPriorityLabel(event.deadline?.priority)}</td>
+                <td className="px-6 py-5">
+                  <Badge tone={getPriorityTone(event.deadline?.priority)}>{getPriorityLabel(event.deadline?.priority)}</Badge>
+                </td>
                 <td className="px-6 py-5 text-sm text-slate-600">{event.location || '—'}</td>
                 <td className="px-6 py-5 text-right">
                   <div className="inline-flex items-center gap-2">
@@ -144,7 +146,10 @@ export function EventTable({
               <div className="mt-4 grid gap-2 text-sm text-slate-600">
                 <p>{format(new Date(event.event_date), 'dd/MM/yyyy')} • {formatTimeRange(event.start_time, event.end_time)}</p>
                 <p>{event.location || '—'}</p>
-                <p>Priority: {getPriorityLabel(event.deadline?.priority)}</p>
+                <p className="inline-flex items-center gap-2">
+                  <span className="text-slate-500">Priority:</span>
+                  <Badge tone={getPriorityTone(event.deadline?.priority)}>{getPriorityLabel(event.deadline?.priority)}</Badge>
+                </p>
               </div>
               <div className="mt-4 flex gap-2">
                 {!event.is_completed ? (
