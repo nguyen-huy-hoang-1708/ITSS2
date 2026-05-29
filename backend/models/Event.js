@@ -26,6 +26,9 @@ const Event = sequelize.define(
     deadline_priority: { type: DataTypes.ENUM('low', 'medium', 'high'), allowNull: true },
     deadline_is_completed: { type: DataTypes.BOOLEAN, allowNull: true, defaultValue: false },
     deadline_completed_at: { type: DataTypes.DATE, allowNull: true },
+    // General completion for all event types
+    is_completed: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    completed_at: { type: DataTypes.DATE, allowNull: true },
     created_at: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     updated_at: { type: DataTypes.DATE, allowNull: true },
   },

@@ -15,8 +15,8 @@ router.get('/:id',                controller.getEventById);
 router.put('/:id',                controller.updateEvent);
 router.delete('/:id',             controller.deleteEvent);
 
-// Deadline actions (chi ap dung cho event co type='deadline')
-router.patch('/:id/complete',     controller.markDeadlineCompleted);
+// Event actions
+router.patch('/:id/complete',     controller.toggleCompletion);
 router.patch('/:id/priority',     controller.updateDeadlinePriority);
 
 module.exports = router;

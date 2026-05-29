@@ -21,6 +21,8 @@ export interface EventItem {
   start_time: string;
   end_time: string;
   location: string;
+  is_completed?: boolean;
+  completed_at?: string | null;
   deadline: DeadlineInfo | null;
   recurrence_frequency?: RecurrenceFrequency;
   recurrence_interval?: number;

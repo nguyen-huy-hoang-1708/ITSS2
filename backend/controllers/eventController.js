@@ -107,6 +107,15 @@ const markDeadlineCompleted = async (req, res) => {
   }
 };
 
+const toggleCompletion = async (req, res) => {
+  try {
+    const data = await eventService.toggleEventCompletion(req.params.id, req.user.user_id);
+    sendRes(res, 200, 'Cập nhật trạng thái thành công', data);
+  } catch (err) {
+    sendRes(res, 400, 'Cập nhật thất bại', null, err.message);
+  }
+};
+
 const updateDeadlinePriority = async (req, res) => {
   try {
     const { priority } = req.body;
@@ -131,5 +140,6 @@ module.exports = {
   updateEvent,
   deleteEvent,
   markDeadlineCompleted,
+  toggleCompletion,
   updateDeadlinePriority,
 };

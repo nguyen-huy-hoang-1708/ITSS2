@@ -164,7 +164,7 @@ export function isEventInCurrentMonth(event: EventItem, reference = new Date()) 
 }
 
 export function isEventCompleted(event: EventItem) {
-  return Boolean(event.deadline?.is_completed);
+  return Boolean(event.is_completed);
 }
 
 export function isEventUrgent(event: EventItem, reference = new Date()) {

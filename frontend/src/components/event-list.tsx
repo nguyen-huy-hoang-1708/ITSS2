@@ -104,7 +104,7 @@ export function EventTable({
                 <td className="px-6 py-5 text-sm text-slate-600">{event.location || '—'}</td>
                 <td className="px-6 py-5 text-right">
                   <div className="inline-flex items-center gap-2">
-                    {event.type === 'deadline' && !event.deadline?.is_completed ? (
+                    {!event.is_completed ? (
                       <ActionButton title="Hoàn thành" onClick={() => onComplete(event)}>
                         <CheckCircle2 className="h-4 w-4" />
                       </ActionButton>
@@ -138,7 +138,7 @@ export function EventTable({
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Badge tone={event.type === 'deadline' ? 'warning' : event.type === 'hoc' ? 'brand' : 'purple'}>{getTypeLabel(event.type)}</Badge>
-                {event.deadline?.is_completed ? <Badge tone="success">Hoàn thành</Badge> : null}
+                {event.is_completed ? <Badge tone="success">Hoàn thành</Badge> : null}
                 {event.recurrence_frequency && event.recurrence_frequency !== 'none' ? <Badge tone="brand">{getRecurrenceLabel(event.recurrence_frequency, event.recurrence_interval || 1)}</Badge> : null}
               </div>
               <div className="mt-4 grid gap-2 text-sm text-slate-600">
@@ -147,10 +147,10 @@ export function EventTable({
                 <p>Priority: {getPriorityLabel(event.deadline?.priority)}</p>
               </div>
               <div className="mt-4 flex gap-2">
-                {event.type === 'deadline' && !event.deadline?.is_completed ? (
+                {!event.is_completed ? (
                   <Button variant="secondary" className="flex-1" onClick={() => onComplete(event)}>
                     <CheckCircle2 className="h-4 w-4" />
-                    Done
+                    Hoàn thành
                   </Button>
                 ) : null}
                 <Button variant="secondary" className="flex-1" onClick={() => onEdit(event)}>

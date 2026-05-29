@@ -218,7 +218,26 @@ const markDeadlineCompleted = async (event_id, user_id) => {
   const found = await Event.findOne({ where: { id: event_id, user_id, type: 'deadline' } });
   if (!found) throw new Error('Deadline không tồn tại');
 
-  await found.update({ deadline_is_completed: true, deadline_completed_at: new Date() });
+  await found.update({ deadline_is_completed: true, deadline_completed_at: new Date(), is_completed: true, completed_at: new Date() });
+  return found;
+};
+
+const toggleEventCompletion = async (event_id, user_id) => {
+  const found = await Event.findOne({ where: { id: event_id, user_id } });
+  if (!found) throw new Error('Sự kiện không tồn tại');
+
+  const nextCompleted = !found.is_completed;
+  const updatePayload = {
+    is_completed: nextCompleted,
+    completed_at: nextCompleted ? new Date() : null,
+  };
+
+  if (found.type === 'deadline') {
+    updatePayload.deadline_is_completed = nextCompleted;
+    updatePayload.deadline_completed_at = nextCompleted ? new Date() : null;
+  }
+
+  await found.update(updatePayload);
   return found;
 };
 
@@ -242,5 +261,6 @@ module.exports = {
   updateEvent,
   deleteEvent,
   markDeadlineCompleted,
+  toggleEventCompletion,
   updateDeadlinePriority,
 };

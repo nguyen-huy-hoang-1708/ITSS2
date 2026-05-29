@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { Badge, Button, Modal, Input, Select, Textarea } from './ui';
+import { useToast } from '@/context/toast-context';
 import type { EventItem, EventPayload, EventPriority, EventType, RecurrenceFrequency } from '@/types/event';
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
 const defaultDate = format(new Date(), 'yyyy-MM-dd');
 
 export function EventFormModal({ open, mode, initialValue, onClose, onSubmit }: Props) {
+  const { pushToast } = useToast();
   const initialType = (initialValue?.type || 'hoc') as EventType;
   const [form, setForm] = useState<EventPayload>({
     title: '',
@@ -84,6 +86,20 @@ export function EventFormModal({ open, mode, initialValue, onClose, onSubmit }: 
         recurrence_until_date: form.recurrence_frequency === 'none' ? null : form.recurrence_until_date,
       });
       onClose();
+    } catch (error: any) {
+      // Extract error message from axios response or Error object
+      const responseError = error?.response?.data?.error || error?.message || 'Lỗi không xác định';
+      
+      if (responseError.includes('Trùng lịch')) {
+        onClose();
+        pushToast({
+          title: 'Không thể tạo sự kiện vì trùng lịch',
+          description: responseError.replace('Trùng lịch với: ', ''),
+          variant: 'error',
+        });
+      } else {
+        setErrors({ submit: responseError });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -107,6 +123,12 @@ export function EventFormModal({ open, mode, initialValue, onClose, onSubmit }: 
       }
     >
       <form id="event-form" onSubmit={handleSubmit} className="space-y-6">
+        {errors.submit && (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
+            <p className="text-sm font-semibold text-rose-900">Lỗi</p>
+            <p className="mt-1 text-sm text-rose-800">{errors.submit}</p>
+          </div>
+        )}
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Tiêu đề" error={errors.title}>
             <Input value={form.title} onChange={(e) => handleChange('title', e.target.value)} placeholder="Nhập tiêu đề" />

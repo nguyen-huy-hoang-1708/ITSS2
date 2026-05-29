@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, useCallback, memo, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { AlertCircle, Calendar, CheckCircle2, Clock3, Sparkles } from 'lucide-react';
 import { AppShell } from '@/components/layout';
 import { MonthCalendar, WeekAgenda } from '@/components/calendar-view';
+import { DayEventsModal } from '@/components/day-events-modal';
 import { EventFormModal } from '@/components/event-form-modal';
 import { EventTable, EventToolbar, type EventFilterMode } from '@/components/event-list';
 import { Badge, Button, Card, CardBody, EmptyState, Input, PageShell, Skeleton } from '@/components/ui';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/context/toast-context';
-import { completeDeadline, createEvent, deleteEvent, getAllEvents, getEventById, getMonthEvents, getTodayEvents, getUpcomingDeadlines, getWeekEvents, updateEvent } from '@/services/events';
+import { completeDeadline, createEvent, deleteEvent, getAllEvents, getEventById, getMonthEvents, getTodayEvents, getUpcomingDeadlines, getWeekEvents, toggleEventCompletion, updateEvent } from '@/services/events';
 import type { EventItem, EventPayload } from '@/types/event';
 import { formatDateShort, formatTimeRange, getDeadlineCountdownLabel, getFreeTimeSuggestions, getMonthCursor, getPriorityLabel, getRecurrenceLabel, getTimeStatistics, getTypeLabel, isEventCompleted, isEventInCurrentMonth, isEventInCurrentWeek, isEventToday } from '@/utils/date';
 import { exportEventsToExcel } from '@/utils/export';
@@ -45,7 +46,7 @@ export function DashboardPage() {
 
   const stats = useMemo(() => {
     const deadlineCount = events.filter((event) => event.type === 'deadline').length;
-    const completedCount = events.filter((event) => event.deadline?.is_completed).length;
+    const completedCount = events.filter((event) => event.is_completed).length;
     const timeStats = getTimeStatistics(events);
     return [
       { label: 'Tổng sự kiện', value: events.length, icon: Calendar, tone: 'brand' as const },
@@ -66,7 +67,7 @@ export function DashboardPage() {
 
   return (
     <AppShell onCreateEvent={() => navigate('/app/events')}>
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fadeIn">
         <Card className="overflow-hidden border-brand-100 bg-[linear-gradient(135deg,rgba(15,23,42,0.98)_0%,rgba(30,41,59,0.94)_45%,rgba(14,165,233,0.84)_100%)] text-white shadow-2xl">
           <CardBody className="relative overflow-hidden">
             <div className="pointer-events-none absolute inset-0 opacity-20">
@@ -337,14 +338,14 @@ export function EventsPage() {
   };
 
   const handleComplete = async (event: EventItem) => {
-    await completeDeadline(getEventId(event));
-    pushToast({ title: 'Đã đánh dấu hoàn thành', description: event.title, variant: 'success' });
+    await toggleEventCompletion(getEventId(event));
+    pushToast({ title: 'Đã cập nhật trạng thái', description: event.title, variant: 'success' });
     await loadEvents();
   };
 
   return (
     <AppShell onCreateEvent={() => setFormOpen(true)}>
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fadeIn">
         <EventToolbar
           search={search}
           setSearch={setSearch}
@@ -376,6 +377,10 @@ export function CalendarPage() {
   const [weekEvents, setWeekEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [weekCursor, setWeekCursor] = useState(new Date());
+  const [typeFilter, setTypeFilter] = useState<'all' | 'hoc' | 'deadline' | 'lam_them'>('all');
+  const [dayEventsModalOpen, setDayEventsModalOpen] = useState(false);
+  const [selectedDayEvents, setSelectedDayEvents] = useState<EventItem[]>([]);
+  const [selectedDay, setSelectedDay] = useState(new Date());
   const navigate = useNavigate();
   const { pushToast } = useToast();
 
@@ -398,36 +403,136 @@ export function CalendarPage() {
     })();
   }, [cursor, pushToast, weekCursor]);
 
+  const filteredMonthEvents = useMemo(() => {
+    if (typeFilter === 'all') return monthEvents;
+    return monthEvents.filter((e) => e.type === typeFilter);
+  }, [monthEvents, typeFilter]);
+
+  const filteredWeekEvents = useMemo(() => {
+    if (typeFilter === 'all') return weekEvents;
+    return weekEvents.filter((e) => e.type === typeFilter);
+  }, [weekEvents, typeFilter]);
+
+  const handleEventClick = useCallback((event: EventItem) => {
+    const dayDate = new Date(event.event_date);
+    setSelectedDay(dayDate);
+    const dayEvents = (typeFilter === 'all' ? monthEvents : monthEvents.filter((e) => e.type === typeFilter))
+      .filter((e) => e.event_date === event.event_date);
+    setSelectedDayEvents(dayEvents);
+    setDayEventsModalOpen(true);
+  }, [typeFilter, monthEvents]);
+
   if (loading) {
     return <CalendarSkeleton />;
   }
 
   return (
     <AppShell onCreateEvent={() => navigate('/app/events')}>
-      <div className="space-y-6">
-        <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <div className="space-y-6 animate-fadeIn">
+        {/* Filter Bar */}
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            variant={typeFilter === 'all' ? 'primary' : 'secondary'}
+            onClick={() => setTypeFilter('all')}
+            className="flex items-center gap-2"
+          >
+            Tất cả ({monthEvents.length})
+          </Button>
+          <Button
+            variant={typeFilter === 'hoc' ? 'primary' : 'secondary'}
+            onClick={() => setTypeFilter('hoc')}
+            className="flex items-center gap-2"
+          >
+            <div className="h-2 w-2 rounded-full bg-brand-500" />
+            Lịch học ({monthEvents.filter((e) => e.type === 'hoc').length})
+          </Button>
+          <Button
+            variant={typeFilter === 'deadline' ? 'primary' : 'secondary'}
+            onClick={() => setTypeFilter('deadline')}
+            className="flex items-center gap-2"
+          >
+            <div className="h-2 w-2 rounded-full bg-amber-500" />
+            Deadline ({monthEvents.filter((e) => e.type === 'deadline').length})
+          </Button>
+          <Button
+            variant={typeFilter === 'lam_them' ? 'primary' : 'secondary'}
+            onClick={() => setTypeFilter('lam_them')}
+            className="flex items-center gap-2"
+          >
+            <div className="h-2 w-2 rounded-full bg-violet-500" />
+            Làm thêm ({monthEvents.filter((e) => e.type === 'lam_them').length})
+          </Button>
+        </div>
+
+        {/* Calendar Section */}
+        <div className="space-y-6">
+          {/* Month Calendar - Full Width */}
           <MonthCalendar
             cursor={cursor}
             setCursor={setCursor}
-            events={monthEvents}
+            events={filteredMonthEvents}
             onSelectDay={(day) => setWeekCursor(day)}
+            onEventClick={handleEventClick}
           />
-          <WeekAgenda cursor={weekCursor} events={weekEvents} />
+
+          {/* Week Agenda - Full Width */}
+          <WeekAgenda cursor={weekCursor} events={filteredWeekEvents} onEventClick={handleEventClick} />
+
+          {/* Selected Day Info Card */}
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Card className="md:col-span-2 lg:col-span-1">
+              <CardBody className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Ngày được chọn</p>
+                  <h3 className="mt-2 text-lg font-semibold text-slate-950">{format(weekCursor, 'EEEE')}</h3>
+                  <h4 className="text-3xl font-bold text-brand-600">{format(weekCursor, 'dd/MM/yyyy')}</h4>
+                </div>
+                <Button 
+                  variant="secondary" 
+                  onClick={() => navigate('/app/events')}
+                  className="w-full"
+                >
+                  Xem danh sách
+                </Button>
+              </CardBody>
+            </Card>
+
+            {/* Quick Stats */}
+            <Card className="md:col-span-2 lg:col-span-2">
+              <CardBody className="space-y-4">
+                <p className="text-sm font-medium text-slate-500">Thống kê ngày</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-2xl bg-brand-50 p-3">
+                    <p className="text-xs text-slate-600">Tổng</p>
+                    <p className="mt-2 text-2xl font-bold text-brand-600">{filteredWeekEvents.filter(e => e.event_date === format(weekCursor, 'yyyy-MM-dd')).length}</p>
+                  </div>
+                  <div className="rounded-2xl bg-amber-50 p-3">
+                    <p className="text-xs text-slate-600">Deadline</p>
+                    <p className="mt-2 text-2xl font-bold text-amber-600">{filteredWeekEvents.filter(e => e.type === 'deadline' && e.event_date === format(weekCursor, 'yyyy-MM-dd')).length}</p>
+                  </div>
+                  <div className="rounded-2xl bg-violet-50 p-3">
+                    <p className="text-xs text-slate-600">Làm thêm</p>
+                    <p className="mt-2 text-2xl font-bold text-violet-600">{filteredWeekEvents.filter(e => e.type === 'lam_them' && e.event_date === format(weekCursor, 'yyyy-MM-dd')).length}</p>
+                  </div>
+                </div>
+              </CardBody>
+            </Card>
+          </div>
         </div>
 
-        <Card>
-          <CardBody>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Selected day</p>
-                <h3 className="text-xl font-semibold text-slate-950">{format(weekCursor, 'EEEE, dd/MM/yyyy')}</h3>
-              </div>
-              <Button variant="secondary" onClick={() => navigate('/app/events')}>
-                Mở danh sách
-              </Button>
-            </div>
-          </CardBody>
-        </Card>
+        <DayEventsModal
+          open={dayEventsModalOpen}
+          date={selectedDay}
+          events={selectedDayEvents}
+          onClose={() => setDayEventsModalOpen(false)}
+          onEventClick={(event) => {
+            setDayEventsModalOpen(false);
+            // Small delay to let modal animation complete smoothly
+            setTimeout(() => {
+              navigate(`/app/events/${event.id}`);
+            }, 150);
+          }}
+        />
       </div>
     </AppShell>
   );
@@ -468,9 +573,9 @@ export function EventDetailPage() {
 
   const handleComplete = async () => {
     if (!event) return;
-    const updated = await completeDeadline(getEventId(event));
+    const updated = await toggleEventCompletion(getEventId(event));
     setEvent(updated);
-    pushToast({ title: 'Đánh dấu hoàn thành', description: updated.title, variant: 'success' });
+    pushToast({ title: 'Đã cập nhật trạng thái', description: updated.title, variant: 'success' });
   };
 
   const handleDelete = async () => {
@@ -506,6 +611,17 @@ export function EventDetailPage() {
                 <InfoBox label="Lặp lại" value={getRecurrenceLabel(event.recurrence_frequency, event.recurrence_interval || 1)} />
               </div>
 
+              {event.is_completed ? (
+                <div className="rounded-3xl border-2 border-emerald-200 bg-emerald-50 p-4">
+                  <p className="text-sm font-semibold text-emerald-700">Đã hoàn thành</p>
+                  {event.completed_at && (
+                    <p className="mt-1 text-xs text-emerald-600">
+                      {format(new Date(event.completed_at), 'HH:mm - dd/MM/yyyy')}
+                    </p>
+                  )}
+                </div>
+              ) : null}
+
               {event.deadline ? (
                 <Card className="border-slate-200 bg-slate-50/80">
                   <CardBody>
@@ -513,10 +629,10 @@ export function EventDetailPage() {
                       <div>
                         <p className="text-sm text-slate-500">Deadline info</p>
                         <p className="mt-1 text-lg font-semibold text-slate-950">Priority: {getPriorityLabel(event.deadline.priority)}</p>
-                        <p className="mt-1 text-sm text-slate-500">Trạng thái: {event.deadline.is_completed ? 'Hoàn thành' : 'Đang chờ'}</p>
+                        <p className="mt-1 text-sm text-slate-500">Trạng thái: {event.is_completed ? 'Hoàn thành' : 'Đang chờ'}</p>
                       </div>
                       <div className="flex gap-2">
-                        {!event.deadline.is_completed ? (
+                        {!event.is_completed ? (
                           <Button onClick={handleComplete}>
                             <CheckCircle2 className="h-4 w-4" />
                             Hoàn thành

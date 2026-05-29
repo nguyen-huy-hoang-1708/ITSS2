@@ -10,11 +10,13 @@ export function MonthCalendar({
   setCursor,
   events,
   onSelectDay,
+  onEventClick,
 }: {
   cursor: Date;
   setCursor: (date: Date) => void;
   events: EventItem[];
   onSelectDay: (date: Date) => void;
+  onEventClick?: (event: EventItem) => void;
 }) {
   const grid = buildMonthGrid(cursor);
   const grouped = groupByDate(events);
@@ -67,12 +69,23 @@ export function MonthCalendar({
                 </div>
                 <div className="mt-3 space-y-2">
                   {dayEvents.slice(0, 2).map((event) => (
-                    <div key={getEventId(event)} className="rounded-xl border border-slate-100 bg-slate-50/90 px-2 py-1.5 text-xs text-slate-600">
+                    <div
+                      key={getEventId(event)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEventClick?.(event);
+                      }}
+                      className="rounded-xl border border-slate-100 bg-slate-50/90 px-2 py-1.5 text-xs text-slate-600 cursor-pointer transition hover:bg-slate-100 hover:border-slate-200"
+                    >
                       <p className="truncate font-medium text-slate-900">{event.title}</p>
                       <p className="mt-0.5 truncate">{formatTimeRange(event.start_time, event.end_time)}</p>
                     </div>
                   ))}
-                  {dayEvents.length > 2 ? <p className="text-xs font-medium text-slate-400">+{dayEvents.length - 2} sự kiện</p> : null}
+                  {dayEvents.length > 2 ? (
+                    <p className="text-xs font-medium text-slate-400 cursor-pointer hover:text-slate-600">
+                      +{dayEvents.length - 2} sự kiện
+                    </p>
+                  ) : null}
                 </div>
               </button>
             );
@@ -83,46 +96,56 @@ export function MonthCalendar({
   );
 }
 
-export function WeekAgenda({ cursor, events }: { cursor: Date; events: EventItem[] }) {
+export function WeekAgenda({ cursor, events, onEventClick }: { cursor: Date; events: EventItem[]; onEventClick?: (event: EventItem) => void }) {
   const days = buildWeekRange(cursor);
   const grouped = groupByDate(events);
 
   return (
     <Card>
-      <CardBody className="space-y-5">
+      <CardBody className="space-y-6">
         <div>
           <p className="text-sm font-medium text-slate-500">Lịch tuần</p>
           <h3 className="text-2xl font-semibold text-slate-950">{format(days[0], 'dd/MM')} - {format(days[6], 'dd/MM/yyyy')}</h3>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-7">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           {days.map((day) => {
             const key = format(day, 'yyyy-MM-dd');
             const dayEvents = grouped[key] || [];
             const isTodayDay = isSameCalendarDay(day, new Date());
 
             return (
-              <div key={key} className={`rounded-3xl border p-4 ${isTodayDay ? 'border-brand-200 bg-brand-50/60' : 'border-slate-200 bg-white'}`}>
-                <div className="flex items-center justify-between gap-2">
+              <div key={key} className={`rounded-3xl border-2 p-5 transition ${isTodayDay ? 'border-brand-200 bg-brand-50/80 shadow-md' : 'border-slate-200 bg-white shadow-sm hover:shadow-md'}`}>
+                <div className="flex flex-col gap-3">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{format(day, 'EEE')}</p>
-                    <h4 className="mt-1 text-lg font-semibold text-slate-950">{format(day, 'dd')}</h4>
+                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">{format(day, 'EEE')}</p>
+                    <h4 className="mt-2 text-2xl font-bold text-slate-950">{format(day, 'dd')}</h4>
                   </div>
-                  {isTodayDay ? <Badge tone="brand">Today</Badge> : null}
+                  {isTodayDay && <Badge tone="brand" className="w-fit">Hôm nay</Badge>}
                 </div>
-                <div className="mt-4 space-y-3">
-                  {dayEvents.length === 0 ? <p className="text-sm text-slate-400">Rỗng</p> : null}
-                  {dayEvents.map((event) => (
-                    <div key={getEventId(event)} className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-950">{event.title}</p>
-                          <p className="mt-1 text-xs text-slate-500">{formatTimeRange(event.start_time, event.end_time)}</p>
-                        </div>
-                        <Badge tone={event.type === 'deadline' ? 'warning' : event.type === 'hoc' ? 'brand' : 'purple'}>{getTypeLabel(event.type)}</Badge>
+                
+                <div className="mt-5 space-y-3">
+                  {dayEvents.length === 0 ? (
+                    <p className="text-sm text-slate-400 italic">Rỗng</p>
+                  ) : (
+                    dayEvents.map((event) => (
+                      <div
+                        key={getEventId(event)}
+                        onClick={() => onEventClick?.(event)}
+                        className={`rounded-2xl border-l-4 px-3 py-2.5 text-xs cursor-pointer transition hover:shadow-md ${
+                          event.type === 'deadline' 
+                            ? 'border-l-amber-400 bg-amber-50 hover:bg-amber-100'
+                            : event.type === 'hoc'
+                            ? 'border-l-brand-400 bg-brand-50 hover:bg-brand-100'
+                            : 'border-l-violet-400 bg-violet-50 hover:bg-violet-100'
+                        }`}
+                      >
+                        <p className="font-semibold text-slate-900 line-clamp-2">{event.title}</p>
+                        <p className="mt-1 text-slate-600">{formatTimeRange(event.start_time, event.end_time)}</p>
+                        {event.location && <p className="mt-1 text-slate-500">{event.location}</p>}
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             );

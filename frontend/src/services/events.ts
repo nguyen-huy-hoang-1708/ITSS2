@@ -68,6 +68,11 @@ export async function completeDeadline(id: string) {
   return response.data;
 }
 
+export async function toggleEventCompletion(id: string) {
+  const response = await request<EventItem>({ url: `/event/${id}/complete`, method: 'PATCH' });
+  return response.data;
+}
+
 export async function updateDeadlinePriority(id: string, priority: EventPriority) {
   const response = await request<EventItem>({
     url: `/event/${id}/priority`,

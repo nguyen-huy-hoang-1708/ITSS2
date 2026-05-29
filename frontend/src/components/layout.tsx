@@ -71,7 +71,7 @@ export function AppShell({ children, onCreateEvent }: { children: React.ReactNod
             </div>
           </header>
 
-          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 xl:px-10">
+          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 xl:px-10 transition-opacity duration-300">
             {children}
           </main>
 

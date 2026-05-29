@@ -29,9 +29,24 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(10px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { opacity: '0', transform: 'translateY(30px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        fadeInScale: {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
       },
       animation: {
         fadeInUp: 'fadeInUp 0.35s ease-out',
+        fadeIn: 'fadeIn 0.3s ease-out',
+        slideUp: 'slideUp 0.4s ease-out',
+        fadeInScale: 'fadeInScale 0.35s ease-out',
       },
     },
   },
